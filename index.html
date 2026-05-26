@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<h2 class="sr-only">Personal finance tracker — log income and expenses, view summaries by day, week, or month, and see spending by category.</h2>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);color:var(--color-text-primary);background:transparent;padding:1rem}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+.balance-bar{background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:1.25rem 1.5rem;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between;border:0.5px solid var(--color-border-tertiary)}
+.balance-label{font-size:13px;color:var(--color-text-secondary);margin-bottom:4px}
+.balance-amount{font-size:28px;font-weight:500}
+.balance-amount.pos{color:#0F6E56}.balance-amount.neg{color:#A32D2D}
+.tabs{display:flex;gap:6px;margin-bottom:1.25rem}
+.tab{flex:1;padding:8px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;cursor:pointer;font-size:14px;color:var(--color-text-secondary);transition:all .15s}
+.tab.active{background:var(--color-background-secondary);color:var(--color-text-primary);font-weight:500;border-color:var(--color-border-primary)}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.25rem}
+.metric{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.875rem 1rem}
+.metric-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:5px}
+.metric-value{font-size:20px;font-weight:500}
+.metric-value.in{color:#0F6E56}.metric-value.out{color:#A32D2D}.metric-value.net.pos{color:#0F6E56}.metric-value.net.neg{color:#A32D2D}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
+.section-title{font-size:15px;font-weight:500}
+.add-btn{display:flex;align-items:center;gap:5px;padding:6px 14px;font-size:13px;border-radius:var(--border-radius-md);cursor:pointer;border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-primary)}
+.add-btn:hover{background:var(--color-background-secondary)}
+.chart-wrap{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:1.25rem}
+.chart-title{font-size:13px;color:var(--color-text-secondary);margin-bottom:.875rem}
+#catChart{width:100%}
+.entries{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden}
+.entry-row{display:grid;grid-template-columns:80px 1fr 110px 80px 70px;align-items:center;gap:10px;padding:.75rem 1rem;border-bottom:0.5px solid var(--color-border-tertiary);font-size:13px}
+.entry-row:last-child{border-bottom:none}
+.entry-header{background:var(--color-background-secondary);font-size:11px;color:var(--color-text-secondary);font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.entry-date{color:var(--color-text-secondary)}
+.entry-name{font-weight:500}
+.entry-note{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.entry-cat{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px}
+.entry-amt.in{color:#0F6E56;font-weight:500}.entry-amt.out{color:#A32D2D;font-weight:500}
+.entry-actions{display:flex;gap:6px;justify-content:flex-end}
+.icon-btn{background:none;border:none;cursor:pointer;color:var(--color-text-secondary);padding:3px;border-radius:4px;line-height:1;font-size:15px}
+.icon-btn:hover{color:var(--color-text-primary);background:var(--color-background-secondary)}
+.empty{padding:2rem;text-align:center;color:var(--color-text-secondary);font-size:14px}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-secondary);padding:1.5rem;width:100%;max-width:420px;margin:1rem}
+.modal h3{font-size:16px;font-weight:500;margin-bottom:1.25rem}
+.form-group{margin-bottom:.875rem}
+.form-group label{display:block;font-size:12px;color:var(--color-text-secondary);margin-bottom:5px}
+.form-group input,.form-group select,.form-group textarea{width:100%;font-family:inherit;font-size:14px}
+.form-group textarea{resize:vertical;min-height:60px}
+.type-toggle{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:.875rem}
+.type-btn{padding:8px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;cursor:pointer;font-size:14px;color:var(--color-text-secondary)}
+.type-btn.active.income{background:#E1F5EE;color:#085041;border-color:#5DCAA5}
+.type-btn.active.expense{background:#FCEBEB;color:#501313;border-color:#F09595}
+.modal-actions{display:flex;gap:8px;margin-top:1.25rem;justify-content:flex-end}
+.btn-cancel{padding:7px 16px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;cursor:pointer;font-size:14px}
+.btn-save{padding:7px 16px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-secondary);cursor:pointer;font-size:14px;font-weight:500}
+.nav-row{display:flex;align-items:center;gap:8px;margin-bottom:1.25rem;justify-content:center}
+.nav-btn{background:none;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--color-text-secondary);font-size:15px}
+.nav-btn:hover{background:var(--color-background-secondary)}
+.nav-label{font-size:14px;font-weight:500;min-width:160px;text-align:center}
+</style>
+
+<div class="balance-bar">
+  <div>
+    <div class="balance-label">Running balance</div>
+    <div class="balance-amount" id="runBal">₹0.00</div>
+  </div>
+  <i class="ti ti-wallet" style="font-size:28px;color:var(--color-text-secondary)" aria-hidden="true"></i>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="setView('daily')">Daily</button>
+  <button class="tab" onclick="setView('weekly')">Weekly</button>
+  <button class="tab" onclick="setView('monthly')">Monthly</button>
+</div>
+
+<div class="nav-row">
+  <button class="nav-btn" onclick="navPrev()"><i class="ti ti-chevron-left" aria-hidden="true"></i></button>
+  <div class="nav-label" id="navLabel">—</div>
+  <button class="nav-btn" onclick="navNext()"><i class="ti ti-chevron-right" aria-hidden="true"></i></button>
+</div>
+
+<div class="metrics">
+  <div class="metric"><div class="metric-label"><i class="ti ti-arrow-down-circle" aria-hidden="true"></i> Money in</div><div class="metric-value in" id="mIn">₹0</div></div>
+  <div class="metric"><div class="metric-label"><i class="ti ti-arrow-up-circle" aria-hidden="true"></i> Money out</div><div class="metric-value out" id="mOut">₹0</div></div>
+  <div class="metric"><div class="metric-label"><i class="ti ti-scale" aria-hidden="true"></i> Net</div><div class="metric-value net" id="mNet">₹0</div></div>
+</div>
+
+<div class="chart-wrap">
+  <div class="chart-title">Spending by category</div>
+  <div style="position:relative;width:100%;height:200px"><canvas id="catChart" role="img" aria-label="Bar chart of spending by category for selected period">No data yet.</canvas></div>
+</div>
+
+<div class="section-header">
+  <div class="section-title">Entries</div>
+  <button class="add-btn" onclick="openModal()"><i class="ti ti-plus" aria-hidden="true"></i> Add entry</button>
+</div>
+
+<div class="entries" id="entryList"></div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3 id="modalTitle">Add entry</h3>
+    <div class="type-toggle">
+      <button class="type-btn active income" id="btnIncome" onclick="setType('income')">Income</button>
+      <button class="type-btn expense" id="btnExpense" onclick="setType('expense')">Expense</button>
+    </div>
+    <div class="form-group"><label>Date</label><input type="date" id="fDate"></div>
+    <div class="form-group"><label>Amount (₹)</label><input type="number" id="fAmt" min="0" step="0.01" placeholder="0.00"></div>
+    <div class="form-group"><label>Category</label>
+      <select id="fCat">
+        <option value="Salary">Salary</option>
+        <option value="Freelance">Freelance</option>
+        <option value="Investment">Investment</option>
+        <option value="Other income">Other income</option>
+        <option value="Food">Food</option>
+        <option value="Transport">Transport</option>
+        <option value="Housing">Housing</option>
+        <option value="Health">Health</option>
+        <option value="Shopping">Shopping</option>
+        <option value="Entertainment">Entertainment</option>
+        <option value="Utilities">Utilities</option>
+        <option value="Education">Education</option>
+        <option value="Other expense">Other expense</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Note (optional)</label><textarea id="fNote" placeholder="Add a note…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveEntry()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+let entries = JSON.parse(localStorage.getItem('fin_entries') || '[]');
+let view = 'daily';
+let offset = 0;
+let editId = null;
+let entryType = 'income';
+let chart = null;
+
+const catColors = {
+  Salary:'#1D9E75',Freelance:'#0F6E56',Investment:'#085041','Other income':'#9FE1CB',
+  Food:'#D85A30',Transport:'#BA7517',Housing:'#E24B4A',Health:'#D4537E',
+  Shopping:'#7F77DD',Entertainment:'#534AB7',Utilities:'#888780',Education:'#378ADD','Other expense':'#A32D2D'
+};
+const catBg = {
+  Salary:'#E1F5EE',Freelance:'#9FE1CB',Investment:'#E1F5EE','Other income':'#E1F5EE',
+  Food:'#FAECE7',Transport:'#FAEEDA',Housing:'#FCEBEB',Health:'#FBEAF0',
+  Shopping:'#EEEDFE',Entertainment:'#EEEDFE',Utilities:'#F1EFE8',Education:'#E6F1FB','Other expense':'#FCEBEB'
+};
+
+function fmt(n){return '₹'+Math.abs(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function today(){return new Date().toISOString().split('T')[0]}
+
+function getRange(){
+  const d = new Date(); d.setHours(0,0,0,0);
+  if(view==='daily'){
+    const t = new Date(d); t.setDate(t.getDate()+offset);
+    const s = t.toISOString().split('T')[0];
+    return {start:s,end:s,label:t.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'})};
+  }
+  if(view==='weekly'){
+    const ref = new Date(d); ref.setDate(ref.getDate()+offset*7);
+    const dow = ref.getDay(); const mon = new Date(ref); mon.setDate(mon.getDate()-(dow===0?6:dow-1));
+    const sun = new Date(mon); sun.setDate(sun.getDate()+6);
+    const s = mon.toISOString().split('T')[0], e = sun.toISOString().split('T')[0];
+    return {start:s,end:e,label:mon.toLocaleDateString('en-IN',{day:'numeric',month:'short'})+' – '+sun.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})};
+  }
+  const ref = new Date(d.getFullYear(),d.getMonth()+offset,1);
+  const s = ref.toISOString().split('T')[0];
+  const last = new Date(ref.getFullYear(),ref.getMonth()+1,0);
+  const e = last.toISOString().split('T')[0];
+  return {start:s,end:e,label:ref.toLocaleDateString('en-IN',{month:'long',year:'numeric'})};
+}
+
+function filtered(){
+  const {start,end}=getRange();
+  return entries.filter(e=>e.date>=start&&e.date<=end);
+}
+
+function render(){
+  const r=getRange();
+  document.getElementById('navLabel').textContent=r.label;
+
+  const inc=entries.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const exp=entries.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
+  const run=inc-exp;
+  const bal=document.getElementById('runBal');
+  bal.textContent=(run>=0?'':'-')+fmt(run);
+  bal.className='balance-amount '+(run>=0?'pos':'neg');
+
+  const rows=filtered();
+  const totalIn=rows.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const totalOut=rows.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
+  const net=totalIn-totalOut;
+  document.getElementById('mIn').textContent=fmt(totalIn);
+  document.getElementById('mOut').textContent=fmt(totalOut);
+  const mNet=document.getElementById('mNet');
+  mNet.textContent=(net>=0?'':'-')+fmt(net);
+  mNet.className='metric-value net '+(net>=0?'pos':'neg');
+
+  const catMap={};
+  rows.filter(e=>e.type==='expense').forEach(e=>{catMap[e.category]=(catMap[e.category]||0)+e.amount});
+  const cats=Object.keys(catMap),vals=cats.map(c=>catMap[c]);
+  const colors=cats.map(c=>catColors[c]||'#888780');
+  if(chart)chart.destroy();
+  chart=new Chart(document.getElementById('catChart'),{
+    type:'bar',
+    data:{labels:cats.length?cats:['No expenses'],datasets:[{data:cats.length?vals:[0],backgroundColor:cats.length?colors:['#D3D1C7'],borderRadius:4,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fmt(ctx.raw)}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:11},color:'#888780',autoSkip:false,maxRotation:30}},y:{grid:{color:'rgba(128,128,128,.1)'},ticks:{callback:v=>'₹'+v.toLocaleString('en-IN'),font:{size:11},color:'#888780'}}}}
+  });
+
+  const list=document.getElementById('entryList');
+  if(!rows.length){list.innerHTML='<div class="empty">No entries for this period. Add one above.</div>';return;}
+  const sorted=[...rows].sort((a,b)=>b.date.localeCompare(a.date));
+  list.innerHTML='<div class="entry-row entry-header"><span>Date</span><span>Details</span><span>Category</span><span style="text-align:right">Amount</span><span></span></div>'
+    +sorted.map(e=>`<div class="entry-row">
+      <span class="entry-date">${new Date(e.date+'T12:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</span>
+      <span><div class="entry-name">${esc(e.note||e.category)}</div></span>
+      <span><span class="entry-cat" style="background:${catBg[e.category]||'#F1EFE8'};color:${catColors[e.category]||'#444441'}">${esc(e.category)}</span></span>
+      <span class="entry-amt ${e.type==='income'?'in':'out'}" style="text-align:right">${e.type==='income'?'+':'-'}${fmt(e.amount)}</span>
+      <span class="entry-actions">
+        <button class="icon-btn" onclick="editEntry('${e.id}')" aria-label="Edit"><i class="ti ti-edit" aria-hidden="true"></i></button>
+        <button class="icon-btn" onclick="deleteEntry('${e.id}')" aria-label="Delete"><i class="ti ti-trash" aria-hidden="true"></i></button>
+      </span>
+    </div>`).join('');
+}
+
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+function setView(v){
+  view=v; offset=0;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  render();
+}
+function navPrev(){offset--;render()}
+function navNext(){offset++;render()}
+
+function openModal(id){
+  editId=id||null;
+  const m=document.getElementById('modalBg');
+  m.classList.add('open');
+  document.getElementById('modalTitle').textContent=editId?'Edit entry':'Add entry';
+  if(editId){
+    const e=entries.find(x=>x.id===editId);
+    setType(e.type);
+    document.getElementById('fDate').value=e.date;
+    document.getElementById('fAmt').value=e.amount;
+    document.getElementById('fCat').value=e.category;
+    document.getElementById('fNote').value=e.note||'';
+  } else {
+    setType('income');
+    document.getElementById('fDate').value=today();
+    document.getElementById('fAmt').value='';
+    document.getElementById('fCat').value='Salary';
+    document.getElementById('fNote').value='';
+  }
+}
+function closeModal(){document.getElementById('modalBg').classList.remove('open')}
+function setType(t){
+  entryType=t;
+  document.getElementById('btnIncome').className='type-btn '+(t==='income'?'active income':'income');
+  document.getElementById('btnExpense').className='type-btn '+(t==='expense'?'active expense':'expense');
+  const expCats=['Food','Transport','Housing','Health','Shopping','Entertainment','Utilities','Education','Other expense'];
+  const incCats=['Salary','Freelance','Investment','Other income'];
+  const sel=document.getElementById('fCat');
+  const cur=sel.value;
+  const opts=t==='income'?incCats:expCats;
+  sel.innerHTML=opts.map(c=>`<option value="${c}">${c}</option>`).join('');
+  if(opts.includes(cur))sel.value=cur;
+}
+function saveEntry(){
+  const date=document.getElementById('fDate').value;
+  const amt=parseFloat(document.getElementById('fAmt').value);
+  const cat=document.getElementById('fCat').value;
+  const note=document.getElementById('fNote').value.trim();
+  if(!date||isNaN(amt)||amt<=0)return;
+  if(editId){
+    const i=entries.findIndex(e=>e.id===editId);
+    if(i>-1)entries[i]={...entries[i],type:entryType,date,amount:amt,category:cat,note};
+  } else {
+    entries.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),type:entryType,date,amount:amt,category:cat,note});
+  }
+  save(); closeModal(); render();
+}
+function editEntry(id){openModal(id)}
+function deleteEntry(id){entries=entries.filter(e=>e.id!==id);save();render()}
+function save(){localStorage.setItem('fin_entries',JSON.stringify(entries))}
+
+document.getElementById('modalBg').addEventListener('click',function(e){if(e.target===this)closeModal()})
+
+render();
+</script>
